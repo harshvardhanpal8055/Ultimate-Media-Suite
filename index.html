@@ -442,7 +442,7 @@
         <div class="footer">
             <p><strong>Ultimate Media Suite</strong> - Your Complete Media Processing Solution</p>
             <p>Made with ❤️ for creators and professionals</p>
-            <p><a href="https://github.com" target="_blank">GitHub</a> | <a href="#">Documentation</a> | <a href="#">Support</a></p>
+            <p>📧 Contact: <a href="mailto:harshvardhanpal.dev1@gmail.com">harshvardhanpal.dev1@gmail.com</a></p>
         </div>
     </div>
 
@@ -527,14 +527,17 @@
             <h2>📑 PDF Merger</h2>
             <form id="pdfMergeForm">
                 <div class="form-group">
-                    <label>Select PDF Files (minimum 2)</label>
-                    <input type="file" id="pdfFiles" accept=".pdf" multiple required>
+                    <label>Add PDF Files (minimum 2)</label>
+                    <input type="file" id="pdfFiles" accept=".pdf" style="display: none;">
+                    <button type="button" class="submit-btn" onclick="document.getElementById('pdfFiles').click()" style="background: #28a745; margin-bottom: 15px;">
+                        ➕ Add PDF File
+                    </button>
                 </div>
-                <div class="form-group">
+                <ul class="file-list" id="pdfFileList"></ul>
+                <div class="form-group" style="margin-top: 20px;">
                     <label>Output Filename</label>
                     <input type="text" id="mergedPdfName" placeholder="merged-document.pdf" value="merged.pdf">
                 </div>
-                <ul class="file-list" id="pdfFileList"></ul>
                 <button type="submit" class="submit-btn">Merge PDFs</button>
             </form>
             <div class="progress-bar" id="pdfMergeProgress">
@@ -582,10 +585,14 @@
             <h2>🖼️ Image to PDF Converter</h2>
             <form id="imageToPdfForm">
                 <div class="form-group">
-                    <label>Select Images (JPG, PNG)</label>
-                    <input type="file" id="imageFiles" accept="image/*" multiple required>
+                    <label>Add Images (JPG, PNG)</label>
+                    <input type="file" id="imageFiles" accept="image/*" style="display: none;">
+                    <button type="button" class="submit-btn" onclick="document.getElementById('imageFiles').click()" style="background: #28a745; margin-bottom: 15px;">
+                        ➕ Add Image
+                    </button>
                 </div>
-                <div class="form-group">
+                <ul class="file-list" id="imageFileList"></ul>
+                <div class="form-group" style="margin-top: 20px;">
                     <label>Page Size</label>
                     <select id="pageSize">
                         <option value="a4">A4</option>
@@ -597,7 +604,6 @@
                     <label>Output Filename</label>
                     <input type="text" id="imagePdfName" placeholder="images.pdf" value="images.pdf">
                 </div>
-                <ul class="file-list" id="imageFileList"></ul>
                 <button type="submit" class="submit-btn">Convert to PDF</button>
             </form>
             <div class="progress-bar" id="imagePdfProgress">
@@ -921,30 +927,58 @@
             }, 2000);
         });
 
-        // PDF Merge Form
+        // PDF Merge Form - Updated for Add PDF Button
+        let selectedPdfFiles = [];
+
         document.getElementById('pdfFiles').addEventListener('change', function(e) {
+            const fileList = document.getElementById('pdfFileList');
+            const newFile = e.target.files[0];
+            
+            if (newFile) {
+                // Check if file already exists
+                const exists = selectedPdfFiles.some(f => f.name === newFile.name);
+                
+                if (!exists) {
+                    selectedPdfFiles.push(newFile);
+                    
+                    // Update display
+                    updatePdfFileList();
+                } else {
+                    alert('⚠️ This file is already added!');
+                }
+            }
+            
+            // Reset input for next selection
+            e.target.value = '';
+        });
+
+        function updatePdfFileList() {
             const fileList = document.getElementById('pdfFileList');
             fileList.innerHTML = '';
             
-            Array.from(e.target.files).forEach((file, index) => {
+            selectedPdfFiles.forEach((file, index) => {
                 const li = document.createElement('li');
                 li.className = 'file-item';
                 li.innerHTML = `
                     <span>${index + 1}. ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                    <button type="button" onclick="removeFile(this, 'pdfFiles')">Remove</button>
+                    <button type="button" onclick="removePdfFile(${index})">Remove</button>
                 `;
                 fileList.appendChild(li);
             });
-        });
+        }
+
+        function removePdfFile(index) {
+            selectedPdfFiles.splice(index, 1);
+            updatePdfFileList();
+        }
 
         document.getElementById('pdfMergeForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const files = document.getElementById('pdfFiles').files;
             const outputName = document.getElementById('mergedPdfName').value;
             
-            if (files.length < 2) {
-                showResult('pdfMergeResult', 'Please select at least 2 PDF files to merge!', true);
+            if (selectedPdfFiles.length < 2) {
+                showResult('pdfMergeResult', 'Please add at least 2 PDF files to merge!', true);
                 return;
             }
             
@@ -954,10 +988,10 @@
                 const { PDFDocument } = PDFLib;
                 const mergedPdf = await PDFDocument.create();
                 
-                for (let i = 0; i < files.length; i++) {
-                    showProgress('pdfMergeProgress', 20 + (i / files.length) * 60);
+                for (let i = 0; i < selectedPdfFiles.length; i++) {
+                    showProgress('pdfMergeProgress', 20 + (i / selectedPdfFiles.length) * 60);
                     
-                    const arrayBuffer = await files[i].arrayBuffer();
+                    const arrayBuffer = await selectedPdfFiles[i].arrayBuffer();
                     const pdf = await PDFDocument.load(arrayBuffer);
                     const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
                     copiedPages.forEach(page => mergedPdf.addPage(page));
@@ -976,6 +1010,10 @@
                     <a href="${url}" download="${outputName}" style="color: #667eea; font-weight: 600;">📥 Download Merged PDF</a>`);
                 
                 hideProgress('pdfMergeProgress');
+                
+                // Clear the files array after successful merge
+                selectedPdfFiles = [];
+                updatePdfFileList();
             } catch (error) {
                 showResult('pdfMergeResult', `Error merging PDFs: ${error.message}`, true);
                 hideProgress('pdfMergeProgress');
@@ -1052,31 +1090,54 @@
             }
         });
 
-        // Image to PDF Form
+        // Image to PDF Form - Updated for Add Image Button
+        let selectedImageFiles = [];
+
         document.getElementById('imageFiles').addEventListener('change', function(e) {
+            const newFile = e.target.files[0];
+            
+            if (newFile) {
+                const exists = selectedImageFiles.some(f => f.name === newFile.name);
+                
+                if (!exists) {
+                    selectedImageFiles.push(newFile);
+                    updateImageFileList();
+                } else {
+                    alert('⚠️ This image is already added!');
+                }
+            }
+            
+            e.target.value = '';
+        });
+
+        function updateImageFileList() {
             const fileList = document.getElementById('imageFileList');
             fileList.innerHTML = '';
             
-            Array.from(e.target.files).forEach((file, index) => {
+            selectedImageFiles.forEach((file, index) => {
                 const li = document.createElement('li');
                 li.className = 'file-item';
                 li.innerHTML = `
                     <span>${index + 1}. ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                    <button type="button" onclick="removeFile(this, 'imageFiles')">Remove</button>
+                    <button type="button" onclick="removeImageFile(${index})">Remove</button>
                 `;
                 fileList.appendChild(li);
             });
-        });
+        }
+
+        function removeImageFile(index) {
+            selectedImageFiles.splice(index, 1);
+            updateImageFileList();
+        }
 
         document.getElementById('imageToPdfForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const files = document.getElementById('imageFiles').files;
             const pageSize = document.getElementById('pageSize').value;
             const outputName = document.getElementById('imagePdfName').value;
             
-            if (files.length === 0) {
-                showResult('imagePdfResult', 'Please select at least one image!', true);
+            if (selectedImageFiles.length === 0) {
+                showResult('imagePdfResult', 'Please add at least one image!', true);
                 return;
             }
             
@@ -1087,10 +1148,10 @@
                 const pdf = new jsPDF();
                 let isFirstPage = true;
                 
-                for (let i = 0; i < files.length; i++) {
-                    showProgress('imagePdfProgress', 20 + (i / files.length) * 70);
+                for (let i = 0; i < selectedImageFiles.length; i++) {
+                    showProgress('imagePdfProgress', 20 + (i / selectedImageFiles.length) * 70);
                     
-                    const file = files[i];
+                    const file = selectedImageFiles[i];
                     const reader = new FileReader();
                     
                     await new Promise((resolve) => {
@@ -1118,10 +1179,14 @@
                 pdf.save(outputName);
                 
                 showResult('imagePdfResult', 
-                    `PDF created successfully!<br>Images: ${files.length}<br>Output: ${outputName}<br><br>
+                    `PDF created successfully!<br>Images: ${selectedImageFiles.length}<br>Output: ${outputName}<br><br>
                     PDF has been downloaded to your device.`);
                 
                 hideProgress('imagePdfProgress');
+                
+                // Clear files after successful conversion
+                selectedImageFiles = [];
+                updateImageFileList();
                 
             } catch (error) {
                 showResult('imagePdfResult', `Error creating PDF: ${error.message}`, true);
@@ -1340,14 +1405,10 @@
         });
 
         // Helper function to remove file from list
+        // This function is no longer needed as we have specific remove functions
+        // Keeping for backward compatibility
         function removeFile(button, inputId) {
             button.parentElement.remove();
-            
-            // Reset file input if no files left
-            const fileList = button.closest('.modal-content').querySelector('.file-list');
-            if (fileList.children.length === 0) {
-                document.getElementById(inputId).value = '';
-            }
         }
     </script>
 </body>
